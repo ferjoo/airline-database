@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="description" content="Relational model for airline operations: 29 tables, 36 foreign keys and 39 check constraints on Oracle. Interactive schema explorer and ER diagram." />
+    <meta name="description" content="Relational model for airline operations on Oracle: 29 entities, 31 relationships, 36 foreign keys and 39 check constraints. Schema explorer, ER diagrams and full design document." />
     <title>Airline Operations Database</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230071e3'/%3E%3Cpath d='M18 22h28M18 32h28M18 42h28' stroke='white' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="assets/style.css" />
@@ -14,6 +14,7 @@
       <div class="wrap nav-inner">
         <a class="nav-title" href="#top">Airline Operations Database</a>
         <nav aria-label="Links" class="nav-links">
+          <a href="design.html">Design document</a>
           <a href="https://github.com/ferjoo/airline-database/blob/main/schema/airline.sql">View SQL</a>
           <a href="https://ferjoo.github.io">ferjoo.github.io</a>
         </nav>
@@ -34,6 +35,16 @@
       <section class="section" aria-labelledby="decisions-title">
         <h2 id="decisions-title">Design decisions</h2>
         <div class="decisions" id="decisions"></div>
+        <a class="more" href="design.html">Read the full design document: every entity, all 31 relationships and the alternatives considered</a>
+      </section>
+
+      <section class="section" aria-labelledby="diagrams-title">
+        <h2 id="diagrams-title">Diagrams</h2>
+        <p class="section-intro">
+          The complete model and its six thematic subviews, exported from Oracle SQL Developer Data Modeler in crow's-foot notation:
+          <code>P</code> marks primary-key columns, <code>F</code> foreign-key columns and <code>*</code> mandatory columns. Select a diagram to open it full size.
+        </p>
+        <div class="diagrams" id="gallery"></div>
       </section>
 
       <section class="section" aria-labelledby="explore-title">
@@ -66,11 +77,12 @@
 
     <footer class="footer">
       <div class="wrap footer-inner">
-        <p>Oracle 23ai · 29 tables · Designed in Oracle SQL Data Modeler</p>
+        <p>Oracle 23ai · 29 entities · 31 relationships · Designed in Oracle SQL Data Modeler</p>
         <p><a href="https://github.com/ferjoo/airline-database">Source on GitHub</a></p>
       </div>
     </footer>
 
+    <script type="module" src="assets/viewer.js"></script>
     <script type="module" src="assets/app.js"></script>
   </body>
 </html>

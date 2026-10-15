@@ -1,15 +1,20 @@
+import { renderGallery } from './diagrams.js'
+
 // Schema explorer: parses schema/airline.sql in the browser, so the page always matches the DDL.
 
 const MERMAID_URL = 'https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs'
 
 const DOMAINS = [
   { id: 'airports', name: 'Airports & infrastructure', tables: ['AEROPUERTO', 'TERMINAL', 'GATE', 'RUNWAY'] },
-  { id: 'fleet', name: 'Fleet & maintenance', tables: ['FLOTA', 'MODELO_AERONAVE', 'AERONAVE', 'TALLER', 'MANTENIMIENTO', 'BUTACA'] },
-  { id: 'flights', name: 'Flights & segments', tables: ['AEROLINEA', 'VUELO', 'OPERACION_VUELO', 'SEGMENTO', 'INVENTARIO_PLAZAS'] },
-  { id: 'crew', name: 'Crew', tables: ['TRIPULANTE', 'PILOTO', 'TRIPULANTE_CABINA', 'CALIFICACION', 'ASIGNACION_TRIPULACION'] },
-  { id: 'reservations', name: 'Reservations & passengers', tables: ['PASAJERO', 'RESERVA', 'RESERVA_PASAJERO', 'RESERVA_SEGMENTO', 'CONEXION'] },
-  { id: 'baggage', name: 'Baggage', tables: ['EQUIPAJE', 'RECLAMO_EQUIPAJE'] },
-  { id: 'operations', name: 'Operations & alerts', tables: ['EVENTO_OPERATIVO', 'ALERTA_IRREGULARIDAD'] },
+  { id: 'fleet', name: 'Fleet, aircraft & maintenance', tables: ['FLOTA', 'MODELO_AERONAVE', 'AERONAVE', 'TALLER', 'MANTENIMIENTO', 'BUTACA'] },
+  { id: 'flights', name: 'Flights, operations & segments', tables: ['AEROLINEA', 'VUELO', 'OPERACION_VUELO', 'SEGMENTO', 'INVENTARIO_PLAZAS'] },
+  { id: 'crew', name: 'Crew & qualifications', tables: ['TRIPULANTE', 'PILOTO', 'TRIPULANTE_CABINA', 'CALIFICACION', 'ASIGNACION_TRIPULACION'] },
+  {
+    id: 'reservations',
+    name: 'Reservations, connections & baggage',
+    tables: ['PASAJERO', 'RESERVA', 'RESERVA_PASAJERO', 'RESERVA_SEGMENTO', 'CONEXION', 'EQUIPAJE', 'RECLAMO_EQUIPAJE'],
+  },
+  { id: 'operations', name: 'Operational events & alerts', tables: ['EVENTO_OPERATIVO', 'ALERTA_IRREGULARIDAD'] },
 ]
 
 const LABELS = {
@@ -45,7 +50,9 @@ const LABELS = {
 }
 
 const WEAK = new Set(['TERMINAL', 'GATE', 'RUNWAY', 'MANTENIMIENTO', 'BUTACA', 'OPERACION_VUELO', 'SEGMENTO'])
-const ASSOCIATIVE = new Set(['CALIFICACION', 'ASIGNACION_TRIPULACION', 'RESERVA_PASAJERO', 'RESERVA_SEGMENTO', 'CONEXION'])
+// Classification from the design document: 6 associative entities, 7 weak entities, 2 subtypes, 31 relationships.
+const ASSOCIATIVE = new Set(['INVENTARIO_PLAZAS', 'CALIFICACION', 'ASIGNACION_TRIPULACION', 'RESERVA_PASAJERO', 'RESERVA_SEGMENTO', 'CONEXION'])
+const RELATIONSHIPS = 31
 const SUPERTYPE = new Set(['TRIPULANTE'])
 const SUBTYPE = new Set(['PILOTO', 'TRIPULANTE_CABINA'])
 
@@ -179,11 +186,15 @@ function renderStats() {
     checks += t.checks.length
   }
   const stats = [
-    [schema.size, 'tables'],
+    [schema.size, 'entities'],
+    [RELATIONSHIPS, 'relationships'],
     [fks, 'foreign keys'],
     [checks, 'check constraints'],
     [WEAK.size, 'weak entities'],
+    [ASSOCIATIVE.size, 'associative entities'],
+    [SUBTYPE.size, 'subtypes'],
   ]
+  $('#stats').classList.add('seven')
   $('#stats').innerHTML = stats.map(([value, label]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`).join('')
 }
 
@@ -278,36 +289,35 @@ function relationship(child, fk) {
   return `  ${fk.target} ${optional ? '|o' : '||'}${identifying ? '--' : '..'}o{ ${child} : "${label}"`
 }
 
+function entityBlock(t) {
+  const fkCols = new Set(t.fks.flatMap((fk) => fk.columns))
+  const lines = [`  ${t.name} {`]
+  for (const c of t.columns) {
+    const keys = [t.pk.includes(c.name) && 'PK', fkCols.has(c.name) && 'FK'].filter(Boolean).join(', ')
+    lines.push(`    ${c.type.replace(/\(.*\)/, '')} ${c.name}${keys ? ' ' + keys : ''}`)
+  }
+  lines.push('  }')
+  return lines
+}
+
+// "all": every entity with every attribute. A domain: its entities in full, related tables from other domains compact.
 function diagramSource(scope) {
   const lines = ['erDiagram']
   const domain = DOMAINS.find((d) => d.id === scope)
   const focus = domain ? new Set(domain.tables) : new Set(schema.keys())
-  const shown = new Set(focus)
-
+  const others = new Set()
   const relations = []
+
   for (const t of schema.values()) {
     for (const fk of t.fks) {
-      if (focus.has(t.name) || (domain && focus.has(fk.target))) {
-        relations.push(relationship(t.name, fk))
-        shown.add(t.name)
-        shown.add(fk.target)
-      }
+      if (!focus.has(t.name) && !focus.has(fk.target)) continue
+      relations.push(relationship(t.name, fk))
+      for (const name of [t.name, fk.target]) if (!focus.has(name)) others.add(name)
     }
   }
 
-  for (const name of shown) {
-    const t = schema.get(name)
-    if (domain && focus.has(name)) {
-      const fkCols = new Set(t.fks.flatMap((fk) => fk.columns))
-      lines.push(`  ${name} {`)
-      for (const c of t.columns) {
-        const keys = [t.pk.includes(c.name) && 'PK', fkCols.has(c.name) && 'FK'].filter(Boolean).join(', ')
-        lines.push(`    ${c.type.replace(/\(.*\)/, '')} ${c.name}${keys ? ' ' + keys : ''}`)
-      }
-      lines.push('  }')
-    }
-    // Tables outside the focus appear through their relationships, without attributes.
-  }
+  for (const name of focus) lines.push(...entityBlock(schema.get(name)))
+  for (const name of others) lines.push(`  ${name}["${name} (other domain)"]`)
   return [...lines, ...relations].join('\n')
 }
 
@@ -336,8 +346,8 @@ async function renderDiagram() {
 }
 
 function renderScopeOptions() {
-  $('#scope').innerHTML = [`<option value="all">All tables (relationships only)</option>`, ...DOMAINS.map((d) => `<option value="${d.id}">${d.name}</option>`)].join('')
-  $('#scope').value = 'flights'
+  $('#scope').innerHTML = [`<option value="all">Full model, all attributes</option>`, ...DOMAINS.map((d) => `<option value="${d.id}">${d.name}</option>`)].join('')
+  $('#scope').value = 'all'
 }
 
 async function main() {
@@ -346,6 +356,7 @@ async function main() {
   renderStats()
   renderDecisions()
   renderScopeOptions()
+  renderGallery($('#gallery'))
 
   const fromHash = decodeURIComponent(location.hash.replace(/^#t=/, ''))
   selected = schema.has(fromHash) ? fromHash : 'SEGMENTO'

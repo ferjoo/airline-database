@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="Entity-relationship design document for the airline operations database: notation, key decisions, every entity and relationship, special attributes, constraints and modeling alternatives." />
+    <title>Design Document · Airline Operations Database</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230071e3'/%3E%3Cpath d='M18 22h28M18 32h28M18 42h28' stroke='white' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="assets/style.css" />
+  </head>
+  <body>
+    <header class="nav">
+      <div class="wrap nav-inner">
+        <a class="nav-title" href="index.html">Airline Operations Database</a>
+        <nav aria-label="Links" class="nav-links">
+          <a href="index.html">Explorer</a>
+          <a href="https://github.com/ferjoo/airline-database/blob/main/schema/airline.sql">View SQL</a>
+          <a href="https://ferjoo.github.io">ferjoo.github.io</a>
+        </nav>
+      </div>
+    </header>
+
+    <div class="wrap doc-layout">
+      <details class="toc" open>
+        <summary>Contents</summary>
+        <ol>
+          <li><a href="#summary">1. Model summary</a>
+            <ol><li><a href="#notation">1.1 Notation used</a></li></ol>
+          </li>
+          <li><a href="#decision">2. The decision that orders the model</a></li>
+          <li><a href="#entities">3. Entities, primary and foreign keys</a>
+            <ol>
+              <li><a href="#e-airports">3.1 Airports and infrastructure</a></li>
+              <li><a href="#e-fleet">3.2 Fleet, aircraft and maintenance</a></li>
+              <li><a href="#e-flights">3.3 Flights, operations and segments</a></li>
+              <li><a href="#e-crew">3.4 Crew</a></li>
+              <li><a href="#e-reservations">3.5 Reservations, connections and baggage</a></li>
+              <li><a href="#e-operations">3.6 Operational events and alerts</a></li>
+            </ol>
+          </li>
+          <li><a href="#relationships">4. Relationships</a></li>
+          <li><a href="#special">5. Special attributes and weak entities</a>
+            <ol>
+              <li><a href="#derived">5.1 Derived attributes</a></li>
+              <li><a href="#multivalued">5.2 Multivalued attributes</a></li>
+              <li><a href="#weak">5.3 Weak entities</a></li>
+            </ol>
+          </li>
+          <li><a href="#constraints">6. Constraints the E-R model cannot express</a></li>
+          <li><a href="#alternatives">7. Modeling alternatives considered</a>
+            <ol>
+              <li><a href="#alt-keys">7.1 Natural vs. surrogate keys</a></li>
+              <li><a href="#alt-subtypes">7.2 Crew subtypes</a></li>
+              <li><a href="#alt-catalogs">7.3 Catalogs vs. closed domains</a></li>
+              <li><a href="#alt-connection">7.4 Connection as entity vs. attribute</a></li>
+            </ol>
+          </li>
+          <li><a href="#annexes">8. Annexes: diagrams</a></li>
+        </ol>
+      </details>
+
+      <main class="doc">
+        <p class="eyebrow">Design document</p>
+        <h1>Entity-relationship model.</h1>
+        <p class="lead">
+          The conceptual design behind the airline operations database: how it is drawn, the decision that shapes it, every entity
+          and relationship, the attributes that need special treatment, the rules a diagram cannot hold, and the alternatives that
+          were weighed.
+        </p>
+
+        <!-- 1 -->
+        <h2 id="summary">1. Model summary</h2>
+        <div class="doc-table">
+          <table>
+            <thead><tr><th>Concept</th><th>Count</th></tr></thead>
+            <tbody>
+              <tr><td>Entities</td><td>29</td></tr>
+              <tr><td>Relationships</td><td>31</td></tr>
+              <tr><td>Weak entities</td><td>7</td></tr>
+              <tr><td>Associative entities (N:N with attributes)</td><td>6</td></tr>
+              <tr><td>Subtypes (specialization)</td><td>2</td></tr>
+              <tr><td>Foreign keys</td><td>36</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The model was built in Oracle SQL Developer Data Modeler and is presented split into six thematic subviews, attached at the
+          end of this document together with the complete diagram. The diagrams are vector graphics and can be enlarged without losing
+          sharpness.
+        </p>
+        <p>
+          <strong>Why 36 foreign keys for 31 relationships.</strong> A relationship resolved through an associative entity is one
+          relationship in the conceptual model but two foreign keys in the relational model, one toward each participant. Four of the
+          relationships in section 4 are N:N through an associative entity (21, 22, 23 and 24) and one is the recursive connection
+          between itinerary legs (26), so 31 relationships become 31 + 5 = 36 foreign keys.
+        </p>
+
+        <h3 id="notation">1.1 Notation used</h3>
+        <p>
+          The diagrams use the crow's-foot notation of Oracle SQL Developer Data Modeler. Since the tool does not offer every symbol of
+          the classic entity-relationship model, the following correspondence applies:
+        </p>
+        <div class="doc-table">
+          <table>
+            <thead><tr><th>Element</th><th>How it is represented</th></tr></thead>
+            <tbody>
+              <tr><td>Underlined key attribute</td><td>Data Modeler marks the primary key with the key icon and the prefix <code>P</code> to the left of the attribute, instead of underlining it.</td></tr>
+              <tr><td>Foreign key</td><td>Prefix <code>F</code>, and the constraint is also listed by name at the bottom of each box.</td></tr>
+              <tr><td>Mandatory attribute</td><td>An asterisk <code>*</code> to the left of the name.</td></tr>
+              <tr><td>Weak entity</td><td>Its primary key includes the key of the parent entity. They are identified in section 3.</td></tr>
+              <tr><td>Derived and multivalued attributes</td><td>Data Modeler does not distinguish them graphically. They are listed in section 5.</td></tr>
+              <tr><td>Total or partial participation</td><td>Indicated in the relationship catalog in section 4.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 2 -->
+        <h2 id="decision">2. The decision that orders the model</h2>
+        <p>
+          Whether a flight operation is identified by the flight number alone or by the number plus the date is the choice that defines
+          the central structure of the model.
+        </p>
+        <p>
+          <strong>A flight number does not identify an operation.</strong> AA123 is a commercial product: the route the airline publishes
+          and sells under the same number every day of the year. It cannot be the key of an operation, because AA123 on September 15 and
+          AA123 on September 16 are different events, with a different crew, a different aircraft, different gates, different delays and
+          a different operational status.
+        </p>
+        <p>That is why the model separates three levels:</p>
+        <div class="doc-table">
+          <table>
+            <thead><tr><th>Entity</th><th>Primary key</th><th>What it represents</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">VUELO</td><td class="mono">num_vuelo</td><td>The commercial product: the published route.</td></tr>
+              <tr><td class="mono">OPERACION_VUELO</td><td class="mono">num_vuelo + fecha_operacion</td><td>The instance of the flight on a specific date. Weak entity of VUELO: without the flight, the date identifies nothing.</td></tr>
+              <tr><td class="mono">SEGMENTO</td><td class="mono">num_vuelo + fecha_operacion + num_secuencia</td><td>Each leg between two airports within that operation. Weak entity of OPERACION_VUELO. <code>num_secuencia</code> preserves the order of the stops.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Without this split it would be impossible to record two operations of the same flight, to keep history, or to assign different
+          crews and aircraft per day. In addition, having <code>num_secuencia</code> inside the key prevents more than one identical segment
+          from existing within the same operation.
+        </p>
+
+        <!-- 3 -->
+        <h2 id="entities">3. Entities, primary and foreign keys</h2>
+
+        <h3 id="e-airports">3.1 Airports and infrastructure</h3>
+        <div class="doc-table">
+          <table>
+            <thead><tr><th>Entity</th><th>Type</th><th>Primary key</th><th>Foreign keys</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">AEROPUERTO</td><td>Strong</td><td class="mono">cod_iata</td><td>—</td></tr>
+              <tr><td class="mono">TERMINAL</td><td>Weak</td><td class="mono">cod_iata, id_terminal</td><td class="mono">cod_iata → AEROPUERTO</td></tr>
+              <tr><td class="mono">GATE</td><td>Weak</td><td class="mono">cod_iata, id_terminal, id_gate</td><td class="mono">(cod_iata, id_terminal) → TERMINAL</td></tr>
+              <tr><td class="mono">RUNWAY</td><td>Weak</td><td class="mono">cod_iata, id_pista</td><td class="mono">cod_iata → AEROPUERTO</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Terminals, gates and runways are numbered within their airport: terminal “A” at GUA is not the same as terminal “A” at MEX.
+          That is why all three are weak entities and their key carries the IATA code.
+        </p>
+
+        <h3 id="e-fleet">3.2 Fleet, aircraft and maintenance</h3>
+        <div class="doc-table">
+          <table>
+            <thead><tr><th>Entity</th><th>Type</th><th>Primary key</th><th>Foreign keys</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">FLOTA</td><td>Strong</td><td class="mono">id_flota</td><td>—</td></tr>
+              <tr><td class="mono">MODELO_AERONAVE</td><td>Strong</td><td class="mono">id_modelo</td><td>—</td></tr>
+              <tr><td class="mono">AERONAVE</td><td>Strong</td><td class="mono">matricula</td><td class="mono">id_modelo → MODELO_AERONAVE · id_flota → FLOTA</td></tr>
+              <tr><td class="mono">TALLER</td><td>Strong</td><td class="mono">id_taller</td><td>—</td></tr>
+              <tr><td class="mono">MANTENIMIENTO</td><td>Weak</td><td class="mono">matricula, fecha_inicio</td><td class="mono">matricula → AERONAVE · id_taller → TALLER</td></tr>
+              <tr><td class="mono">BUTACA</td><td>Weak</td><td class="mono">matricula, num_butaca</td><td class="mono">matricula → AERONAVE</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The model is separated from the aircraft because two different rules depend on it: crew qualifications are granted per model and
+          not per registration, and the minimum runway length is a property of the model.
+        </p>
+        <p>
+          The seat hangs from the aircraft and not from the flight: a seat belongs to a specific aircraft and a specific class. Seat 14C is a
+          physical property of the airplane. What changes from flight to flight is its occupancy, and that is resolved in
+          <code>RESERVA_SEGMENTO</code> and <code>INVENTARIO_PLAZAS</code>.
+        </p>
+
+        <h3 id="e-flights">3.3 Flights, operations and segments</h3>
+        <div class="doc-table">
+          <table>
+            <thead><tr><th>Entity</th><th>Type</th><th>Primary key</th><th>Foreign keys</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">AEROLINEA</td><td>Strong</td><td class="mono">cod_aerolinea</td><td>—</td></tr>
+              <tr><td class="mono">VUELO</td><td>Strong</td><td class="mono">num_vuelo</td><td class="mono">cod_aerolinea → AEROLINEA</td></tr>
+              <tr><td class="mono">OPERACION_VUELO</td><td>Weak</td><td class="mono">num_vuelo, fecha_operacion</td><td class="mono">num_vuelo → VUELO</td></tr>
+              <tr><td class="mono">SEGMENTO</td><td>Weak</td><td class="mono">num_vuelo, fecha_operacion, num_secuencia</td><td class="mono">(num_vuelo, fecha_operacion) → OPERACION_VUELO · origin and destination → AEROPUERTO · gates → GATE · matricula → AERONAVE</td></tr>
+              <tr><td class="mono">INVENTARIO_PLAZAS</td><td>Associative</td><td class="mono">num_vuelo, fecha_operacion, num_secuencia, clase</td><td class="mono">(segment) → SEGMENTO</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          <code>INVENTARIO_PLAZAS</code> is classified as associative because it relates each segment with each cabin class and carries the
+          attributes of that pair (total, occupied and available seats). The class side is a closed domain rather than an entity of its own
+          (see <a href="#alt-catalogs">7.3</a>), so in the relational model the table has a single foreign key, toward
+          <code>SEGMENTO</code>. It is not counted among the weak entities: its key is the full key of the pair, not a partial identifier
+          within a parent.
+        </p>
+
+        <h3 id="e-crew">3.4 Crew</h3>
+        <div class="doc-table">
+          <table>
+            <thead><tr><th>Entity</th><th>Type</th><th>Primary key</th><th>Foreign keys</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">TRIPULANTE</td><td>Strong</td><td class="mono">id_tripulante</td><td class="mono">aeropuerto_base → AEROPUERTO</td></tr>
+              <tr><td class="mono">PILOTO</td><td>Subtype</td><td class="mono">id_tripulante</td><td class="mono">(id_tripulante, tipo) → TRIPULANTE</td></tr>
+              <tr><td class="mono">TRIPULANTE_CABINA</td><td>Subtype</td><td class="mono">id_tripulante</td><td class="mono">(id_tripulante, tipo) → TRIPULANTE</td></tr>
+              <tr><td class="mono">CALIFICACION</td><td>Associative</td><td class="mono">id_tripulante, id_modelo</td><td class="mono">→ TRIPULANTE · → MODELO_AERONAVE</td></tr>
+              <tr><td class="mono">ASIGNACION_TRIPULACION</td><td>Associative</td><td class="mono">(segment), id_tripulante</td><td class="mono">→ SEGMENTO · → TRIPULANTE</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          <code>TRIPULANTE</code> is a supertype with two disjoint subtypes. The license number and license type only apply to pilots; leaving
+          them in the general entity would make them null for all cabin crew and would make it impossible to require them for pilots.
+        </p>
+
+        <h3 id="e-reservations">3.5 Reservations, connections and baggage</h3>
+        <div class="doc-table">
+          <table>
+            <thead><tr><th>Entity</th><th>Type</th><th>Primary key</th><th>Foreign keys</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">PASAJERO</td><td>Strong</td><td class="mono">id_pasajero</td><td>—</td></tr>
+              <tr><td class="mono">RESERVA</td><td>Strong</td><td class="mono">cod_pnr</td><td>—</td></tr>
+              <tr><td class="mono">RESERVA_PASAJERO</td><td>Associative</td><td class="mono">cod_pnr, id_pasajero</td><td class="mono">→ RESERVA · → PASAJERO</td></tr>
+              <tr><td class="mono">RESERVA_SEGMENTO</td><td>Associative</td><td class="mono">cod_pnr, (segment)</td><td class="mono">→ RESERVA · → SEGMENTO · → BUTACA</td></tr>
+              <tr><td class="mono">CONEXION</td><td>Associative</td><td class="mono">cod_pnr, orden_llegada, orden_salida</td><td class="mono">→ RESERVA_SEGMENTO (twice)</td></tr>
+              <tr><td class="mono">EQUIPAJE</td><td>Strong</td><td class="mono">id_equipaje</td><td class="mono">cod_pnr → RESERVA</td></tr>
+              <tr><td class="mono">RECLAMO_EQUIPAJE</td><td>Strong</td><td class="mono">id_reclamo</td><td class="mono">id_equipaje → EQUIPAJE</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          <code>CONEXION</code> relates two consecutive legs of the same itinerary, which is why it hangs from <code>RESERVA_SEGMENTO</code> and
+          not from the segment. Final and intermediate destinations are distinguished with the <code>rol_destino</code> attribute of
+          <code>RESERVA_SEGMENTO</code>: the same GUA→MEX segment can be the final destination for one passenger and an intermediate stop for
+          another who continues to LAX.
+        </p>
+
+        <h3 id="e-operations">3.6 Operational events and alerts</h3>
+        <div class="doc-table">
+          <table>
+            <thead><tr><th>Entity</th><th>Type</th><th>Primary key</th><th>Foreign keys</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">EVENTO_OPERATIVO</td><td>Strong</td><td class="mono">id_evento</td><td class="mono">(segment) → SEGMENTO · (gate) → GATE</td></tr>
+              <tr><td class="mono">ALERTA_IRREGULARIDAD</td><td>Strong</td><td class="mono">id_alerta</td><td class="mono">(segment) → SEGMENTO</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Both are histories with a timestamp: a row is never updated, a new one is always inserted. That is what makes it possible to
+          reconstruct what happened and in what order.
+        </p>
+
+        <!-- 4 -->
+        <h2 id="relationships">4. Relationships</h2>
+        <p>
+          The 31 relationships of the model with their cardinality, participation and a short description. <strong>T</strong> means total
+          (mandatory) participation; <strong>P</strong>, partial (optional).
+        </p>
+        <div class="doc-table">
+          <table>
+            <thead><tr><th>#</th><th>Relationship</th><th>Card.</th><th>Part.</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr class="group"><td colspan="5">Airports</td></tr>
+              <tr><td>1</td><td class="mono nowrap">AEROPUERTO — TERMINAL</td><td>1:N</td><td class="nowrap">T : T</td><td>Every airport has at least one terminal; every terminal belongs to one airport.</td></tr>
+              <tr><td>2</td><td class="mono nowrap">TERMINAL — GATE</td><td>1:N</td><td class="nowrap">T : T</td><td>Each terminal groups several boarding gates.</td></tr>
+              <tr><td>3</td><td class="mono nowrap">AEROPUERTO — RUNWAY</td><td>1:N</td><td class="nowrap">P : T</td><td>An airport can have several runways; their length restricts which models can operate there.</td></tr>
+              <tr class="group"><td colspan="5">Fleet and aircraft</td></tr>
+              <tr><td>4</td><td class="mono nowrap">FLOTA — AERONAVE</td><td>1:N</td><td class="nowrap">P : T</td><td>Every aircraft belongs to exactly one fleet.</td></tr>
+              <tr><td>5</td><td class="mono nowrap">MODELO_AERONAVE — AERONAVE</td><td>1:N</td><td class="nowrap">P : T</td><td>Each aircraft is of one model, which sets the manufacturer, type and minimum runway length.</td></tr>
+              <tr><td>6</td><td class="mono nowrap">AERONAVE — MANTENIMIENTO</td><td>1:N</td><td class="nowrap">P : T</td><td>Maintenance history with start date, end date and type. While one is open, the aircraft is out of service.</td></tr>
+              <tr><td>7</td><td class="mono nowrap">TALLER — MANTENIMIENTO</td><td>1:N</td><td class="nowrap">P : T</td><td>Each maintenance job has a responsible workshop.</td></tr>
+              <tr><td>8</td><td class="mono nowrap">AERONAVE — BUTACA</td><td>1:N</td><td class="nowrap">T : T</td><td>The physical seats of the airplane, each one with its assigned class.</td></tr>
+              <tr class="group"><td colspan="5">Flights and segments</td></tr>
+              <tr><td>9</td><td class="mono nowrap">AEROLINEA — VUELO</td><td>1:N</td><td class="nowrap">P : T</td><td>The airline that operates the commercial flight.</td></tr>
+              <tr><td>10</td><td class="mono nowrap">VUELO — OPERACION_VUELO</td><td>1:N</td><td class="nowrap">P : T</td><td>Identifying relationship. Each date on which the flight operates creates its own instance.</td></tr>
+              <tr><td>11</td><td class="mono nowrap">OPERACION_VUELO — SEGMENTO</td><td>1:N</td><td class="nowrap">T : T</td><td>Identifying relationship. Every operation has at least one segment; with stops, several, ordered by sequence.</td></tr>
+              <tr><td>12</td><td class="mono nowrap">AEROPUERTO — SEGMENTO (origin)</td><td>1:N</td><td class="nowrap">P : T</td><td>Departure airport of the leg.</td></tr>
+              <tr><td>13</td><td class="mono nowrap">AEROPUERTO — SEGMENTO (destination)</td><td>1:N</td><td class="nowrap">P : T</td><td>Arrival airport of the leg, necessarily different from the origin.</td></tr>
+              <tr><td>14</td><td class="mono nowrap">GATE — SEGMENTO (departure)</td><td>1:N</td><td class="nowrap">P : P</td><td>Boarding gate. Partial: it is assigned hours before the flight and can change.</td></tr>
+              <tr><td>15</td><td class="mono nowrap">GATE — SEGMENTO (arrival)</td><td>1:N</td><td class="nowrap">P : P</td><td>Arrival gate at the destination airport.</td></tr>
+              <tr><td>16</td><td class="mono nowrap">AERONAVE — SEGMENTO</td><td>1:N</td><td class="nowrap">P : P</td><td>Aircraft that operates the leg. An aircraft operates many segments, but never two whose schedules overlap.</td></tr>
+              <tr><td>17</td><td class="mono nowrap">SEGMENTO — INVENTARIO_PLAZAS</td><td>1:N</td><td class="nowrap">T : T</td><td>Control of total, occupied and available seats per segment and class.</td></tr>
+              <tr class="group"><td colspan="5">Crew</td></tr>
+              <tr><td>18</td><td class="mono nowrap">TRIPULANTE — PILOTO</td><td>1:1</td><td class="nowrap">P : T</td><td>Specialization. Adds license number, license type and flight hours.</td></tr>
+              <tr><td>19</td><td class="mono nowrap">TRIPULANTE — TRIPULANTE_CABINA</td><td>1:1</td><td class="nowrap">P : T</td><td>Specialization. Disjoint and total together with the previous one: every crew member is one or the other, never both.</td></tr>
+              <tr><td>20</td><td class="mono nowrap">AEROPUERTO — TRIPULANTE</td><td>1:N</td><td class="nowrap">P : T</td><td>Home base airport of the crew member.</td></tr>
+              <tr><td>21</td><td class="mono nowrap">TRIPULANTE — CALIFICACION — MODELO</td><td>N:N</td><td class="nowrap">P : P</td><td>Associative with attributes. Which models each crew member can fly, with date obtained and expiry date.</td></tr>
+              <tr><td>22</td><td class="mono nowrap">SEGMENTO — ASIGNACION — TRIPULANTE</td><td>N:N</td><td class="nowrap">T : P</td><td>Associative with attributes. Assignment history with the role per segment. Total on the segment side: no leg operates without a crew.</td></tr>
+              <tr class="group"><td colspan="5">Reservations and baggage</td></tr>
+              <tr><td>23</td><td class="mono nowrap">RESERVA — RESERVA_PASAJERO — PASAJERO</td><td>N:N</td><td class="nowrap">T : P</td><td>Associative. A PNR can cover several passengers, and a person appears in many bookings.</td></tr>
+              <tr><td>24</td><td class="mono nowrap">RESERVA — RESERVA_SEGMENTO — SEGMENTO</td><td>N:N</td><td class="nowrap">T : P</td><td>Associative with attributes. The itinerary: which segments the booking covers, in what order, in which class and with which seat.</td></tr>
+              <tr><td>25</td><td class="mono nowrap">BUTACA — RESERVA_SEGMENTO</td><td>1:N</td><td class="nowrap">P : P</td><td>Seat assigned to the passenger on that leg. Partial: it may not be assigned until check-in.</td></tr>
+              <tr><td>26</td><td class="mono nowrap">RESERVA_SEGMENTO — CONEXION</td><td>N:N</td><td class="nowrap">P : T</td><td>Recursive associative. Links two consecutive legs of the same itinerary, with the minimum and actual connection time.</td></tr>
+              <tr><td>27</td><td class="mono nowrap">RESERVA — EQUIPAJE</td><td>1:N</td><td class="nowrap">P : T</td><td>Pieces checked under the booking, with number, weight and type.</td></tr>
+              <tr><td>28</td><td class="mono nowrap">EQUIPAJE — RECLAMO_EQUIPAJE</td><td>1:N</td><td class="nowrap">P : T</td><td>Claim history for the loss of or damage to a piece.</td></tr>
+              <tr class="group"><td colspan="5">Operational events</td></tr>
+              <tr><td>29</td><td class="mono nowrap">SEGMENTO — EVENTO_OPERATIVO</td><td>1:N</td><td class="nowrap">P : T</td><td>Log with timestamp: gate assigned or changed, takeoff, landing, delays and their reason.</td></tr>
+              <tr><td>30</td><td class="mono nowrap">GATE — EVENTO_OPERATIVO</td><td>1:N</td><td class="nowrap">P : P</td><td>Gate involved, only in gate assignment or gate change events.</td></tr>
+              <tr><td>31</td><td class="mono nowrap">SEGMENTO — ALERTA_IRREGULARIDAD</td><td>1:N</td><td class="nowrap">P : T</td><td>Irregularities: passengers missing a connection, diversion or forced landing.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 5 -->
+        <h2 id="special">5. Special attributes and weak entities</h2>
+
+        <h3 id="derived">5.1 Derived attributes</h3>
+        <p>They are not stored: they are computed from other data.</p>
+        <ul>
+          <li><code>VUELO.duracion_estimada_total</code>: sum of the durations of its segments.</li>
+          <li><code>SEGMENTO.retraso_salida_min</code>: difference between the actual and the scheduled departure time.</li>
+          <li><code>INVENTARIO_PLAZAS.plazas_disponibles</code>: total seats minus occupied seats.</li>
+          <li><code>CONEXION.tiempo_real_min</code>: departure of the second leg minus arrival of the first.</li>
+          <li><code>CONEXION.es_misconnected</code>: true when the actual time falls below the required minimum.</li>
+        </ul>
+        <p>
+          In the physical DDL, three of them are <code>GENERATED ALWAYS AS … VIRTUAL</code> columns (<code>retraso_salida_min</code>,
+          <code>plazas_disponibles</code> and <code>es_misconnected</code>), so the database computes them from stored facts. The total flight
+          duration is computed at query time from the segments; <code>VUELO</code> stores only an optional published estimate
+          (<code>duracion_estimada_min</code>). <code>tiempo_real_min</code> spans two different rows, which a virtual column cannot reference,
+          so it is stored once the connection has happened.
+        </p>
+
+        <h3 id="multivalued">5.2 Multivalued attributes, resolved into entities</h3>
+        <p>A multivalued attribute violates first normal form, so each one is extracted into its own entity:</p>
+        <ul>
+          <li>Crew qualifications (“which models can this person fly”) → <code>CALIFICACION</code>, which also gains its own validity attributes.</li>
+          <li>Roles per segment → <code>ASIGNACION_TRIPULACION</code>. The role is an attribute of the relationship: the same person can be captain on one segment and first officer on another.</li>
+          <li>Passengers of a PNR → <code>RESERVA_PASAJERO</code>.</li>
+          <li>Runways of an airport → <code>RUNWAY</code>.</li>
+        </ul>
+
+        <h3 id="weak">5.3 Weak entities</h3>
+        <p>Seven entities have a partial identifier, which only makes sense within their parent entity:</p>
+        <div class="doc-table">
+          <table>
+            <thead><tr><th>Weak entity</th><th>Depends on</th><th>Partial identifier</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">TERMINAL</td><td class="mono">AEROPUERTO</td><td class="mono">id_terminal</td></tr>
+              <tr><td class="mono">GATE</td><td class="mono">TERMINAL</td><td class="mono">id_gate</td></tr>
+              <tr><td class="mono">RUNWAY</td><td class="mono">AEROPUERTO</td><td class="mono">id_pista</td></tr>
+              <tr><td class="mono">BUTACA</td><td class="mono">AERONAVE</td><td class="mono">num_butaca</td></tr>
+              <tr><td class="mono">MANTENIMIENTO</td><td class="mono">AERONAVE</td><td class="mono">fecha_inicio</td></tr>
+              <tr><td class="mono">OPERACION_VUELO</td><td class="mono">VUELO</td><td class="mono">fecha_operacion</td></tr>
+              <tr><td class="mono">SEGMENTO</td><td class="mono">OPERACION_VUELO</td><td class="mono">num_secuencia</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 6 -->
+        <h2 id="constraints">6. Constraints the E-R model cannot express</h2>
+        <p>
+          They are listed explicitly to record that they were identified and that leaving them out of the diagram is deliberate.
+        </p>
+        <div class="doc-table">
+          <table>
+            <thead><tr><th>Constraint</th><th>Why it cannot be represented, and how it is implemented</th></tr></thead>
+            <tbody>
+              <tr><td>Origin ≠ destination in a segment</td><td>It compares two attributes of the same row: implemented with <code>CHECK (aeropuerto_origen &lt;&gt; aeropuerto_destino)</code>.</td></tr>
+              <tr><td>No identical segments within an operation</td><td>Already covered by the primary key, which includes <code>num_secuencia</code>.</td></tr>
+              <tr><td>A crew member cannot be on two overlapping segments</td><td>It requires comparing time intervals across different rows. It needs an exclusion constraint, a trigger or validation in the application.</td></tr>
+              <tr><td>An aircraft cannot operate overlapping segments</td><td>Same case as the previous one, on the registration assigned to the segment.</td></tr>
+              <tr><td>Captain and first officer qualified for the model</td><td>It crosses four entities: ASIGNACION → SEGMENTO → AERONAVE → MODELO, checked against a valid <code>CALIFICACION</code>.</td></tr>
+              <tr><td>The aircraft needs a long enough runway</td><td>It compares the model's minimum length against the longest runway of the origin and destination airports.</td></tr>
+              <tr><td>Occupied seats ≤ total seats</td><td><code>CHECK</code> inside <code>INVENTARIO_PLAZAS</code>; keeping the counter in sync with bookings requires a trigger.</td></tr>
+              <tr><td>The assigned seat belongs to the segment's aircraft</td><td>Guaranteed with a composite foreign key if <code>RESERVA_SEGMENTO</code> carries the segment's registration.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout">
+          <p>
+            <strong>Two constraints that did become declarative.</strong> The gate foreign keys include the airport code,
+            <code>(aeropuerto_origen, terminal_salida, gate_salida)</code>, so it is impossible to assign a gate located in MEX to a flight that
+            departs from GUA.
+          </p>
+          <p>
+            And a <code>UNIQUE (id_tripulante, tipo)</code> on <code>TRIPULANTE</code> lets the subtypes reference that pair, which prevents
+            registering a cabin crew member as a pilot.
+          </p>
+        </div>
+
+        <!-- 7 -->
+        <h2 id="alternatives">7. Modeling alternatives considered</h2>
+
+        <h3 id="alt-keys">7.1 Composite natural keys vs. surrogate keys</h3>
+        <p>
+          The model uses natural keys: <code>SEGMENTO</code> is identified by <code>num_vuelo + fecha_operacion + num_secuencia</code>. That is
+          correct at the conceptual level, because it expresses the identity dependency and makes the ordinality of the stops visible.
+        </p>
+        <p>
+          <strong>Cost:</strong> that three-attribute key propagates to <code>ASIGNACION_TRIPULACION</code>, <code>RESERVA_SEGMENTO</code>,
+          <code>INVENTARIO_PLAZAS</code>, <code>EVENTO_OPERATIVO</code> and <code>ALERTA_IRREGULARIDAD</code>, which end up with very wide
+          foreign keys.
+        </p>
+        <p>
+          <strong>Alternative:</strong> give <code>OPERACION_VUELO</code> and <code>SEGMENTO</code> a surrogate key and keep the natural key as
+          a <code>UNIQUE</code> constraint. Joins become simpler without losing any rule, because uniqueness is still guaranteed. It is the
+          option we would choose for the physical implementation.
+        </p>
+
+        <h3 id="alt-subtypes">7.2 Crew subtypes</h3>
+        <p>
+          <code>PILOTO</code> and <code>TRIPULANTE_CABINA</code> were modeled as subtypes. The alternative, a single entity with a discriminator
+          and nullable columns, avoids two tables, but it leaves the license number and license type null for all cabin crew and makes it
+          impossible to require them for pilots with a simple constraint.
+        </p>
+
+        <h3 id="alt-catalogs">7.3 Catalogs vs. closed domains</h3>
+        <p>
+          Operational status, crew role, cabin class, event type and delay reason were left as attributes with an enumerated domain, so as not
+          to inflate the diagram with two-column entities. If the business needed to add values without altering tables, for example new
+          delay reasons, each of them should become a catalog with its own key.
+        </p>
+
+        <h3 id="alt-connection">7.4 Connection as an entity vs. an attribute</h3>
+        <p>
+          <code>CONEXION</code> was modeled as an associative entity between two itinerary lines. The alternative would be a
+          <code>tiempo_conexion</code> attribute on <code>RESERVA_SEGMENTO</code>, but then there would be nowhere to record the required minimum
+          time or the misconnected flag, and the explicit relationship between the arriving leg and the departing leg would be lost.
+        </p>
+
+        <!-- 8 -->
+        <h2 id="annexes">8. Annexes: diagrams</h2>
+        <p>
+          The complete diagram of the model and its six thematic subviews, exported from Oracle SQL Developer Data Modeler as vector graphics
+          in crow's-foot notation. The subviews split the model by area so the 29 entities stay readable; entities that appear in more than one
+          subview act as the link between areas. Select a diagram to open it full size.
+        </p>
+        <div class="doc-table">
+          <table>
+            <thead><tr><th>Annex</th><th>Subview</th><th>Entities included</th></tr></thead>
+            <tbody>
+              <tr><td>A</td><td><a href="assets/diagrams/full-model.svg" data-viewer-src="assets/diagrams/full-model.svg" data-viewer-title="A · Complete diagram">Complete diagram</a></td><td>The 29 entities of the model with their 36 foreign keys</td></tr>
+              <tr><td>B</td><td><a href="assets/diagrams/airports.svg" data-viewer-src="assets/diagrams/airports.svg" data-viewer-title="B · Airports and infrastructure">Airports and infrastructure</a></td><td class="mono">AEROPUERTO · TERMINAL · GATE · RUNWAY</td></tr>
+              <tr><td>C</td><td><a href="assets/diagrams/fleet.svg" data-viewer-src="assets/diagrams/fleet.svg" data-viewer-title="C · Fleet, aircraft and maintenance">Fleet, aircraft and maintenance</a></td><td class="mono">FLOTA · MODELO_AERONAVE · AERONAVE · TALLER · MANTENIMIENTO · BUTACA</td></tr>
+              <tr><td>D</td><td><a href="assets/diagrams/flights.svg" data-viewer-src="assets/diagrams/flights.svg" data-viewer-title="D · Flights, operations and segments">Flights, operations and segments</a></td><td class="mono">AEROLINEA · VUELO · OPERACION_VUELO · SEGMENTO · INVENTARIO_PLAZAS</td></tr>
+              <tr><td>E</td><td><a href="assets/diagrams/crew.svg" data-viewer-src="assets/diagrams/crew.svg" data-viewer-title="E · Crew and qualifications">Crew and qualifications</a></td><td class="mono">TRIPULANTE · PILOTO · TRIPULANTE_CABINA · CALIFICACION · ASIGNACION_TRIPULACION</td></tr>
+              <tr><td>F</td><td><a href="assets/diagrams/reservations.svg" data-viewer-src="assets/diagrams/reservations.svg" data-viewer-title="F · Reservations, connections and baggage">Reservations, connections and baggage</a></td><td class="mono">PASAJERO · RESERVA · RESERVA_PASAJERO · RESERVA_SEGMENTO · CONEXION · EQUIPAJE · RECLAMO_EQUIPAJE</td></tr>
+              <tr><td>G</td><td><a href="assets/diagrams/operations.svg" data-viewer-src="assets/diagrams/operations.svg" data-viewer-title="G · Operational events and alerts">Operational events and alerts</a></td><td class="mono">EVENTO_OPERATIVO · ALERTA_IRREGULARIDAD</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="diagrams" id="annex-gallery"></div>
+      </main>
+    </div>
+
+    <footer class="footer">
+      <div class="wrap footer-inner">
+        <p>Oracle 23ai · 29 entities · 31 relationships · Designed in Oracle SQL Data Modeler</p>
+        <p><a href="index.html">Back to the schema explorer</a></p>
+      </div>
+    </footer>
+
+    <script type="module" src="assets/viewer.js"></script>
+    <script type="module" src="assets/design.js"></script>
+  </body>
+</html>
