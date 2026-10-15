@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="Relational model for airline operations: 29 tables, 36 foreign keys and 39 check constraints on Oracle. Interactive schema explorer and ER diagram." />
+    <title>Airline Operations Database</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230071e3'/%3E%3Cpath d='M18 22h28M18 32h28M18 42h28' stroke='white' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="assets/style.css" />
+  </head>
+  <body>
+    <header class="nav">
+      <div class="wrap nav-inner">
+        <a class="nav-title" href="#top">Airline Operations Database</a>
+        <nav aria-label="Links" class="nav-links">
+          <a href="https://github.com/ferjoo/airline-database/blob/main/schema/airline.sql">View SQL</a>
+          <a href="https://ferjoo.github.io">ferjoo.github.io</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="top" class="wrap">
+      <section class="hero">
+        <p class="eyebrow">Database design · Oracle 23ai</p>
+        <h1>Airline operations database.</h1>
+        <p class="lead">
+          A relational model for an airline's control system: airports, fleet and maintenance, daily flight operations, crew,
+          bookings, baggage and operational events. Every business rule that can be declared, is declared.
+        </p>
+        <dl class="stats" id="stats" aria-live="polite"></dl>
+      </section>
+
+      <section class="section" aria-labelledby="decisions-title">
+        <h2 id="decisions-title">Design decisions</h2>
+        <div class="decisions" id="decisions"></div>
+      </section>
+
+      <section class="section" aria-labelledby="explore-title">
+        <h2 id="explore-title">Explore the schema</h2>
+        <div class="explorer">
+          <div class="explorer-list">
+            <label class="search">
+              <span class="sr-only">Search tables and columns</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></svg>
+              <input id="search" type="search" placeholder="Search tables or columns" autocomplete="off" />
+            </label>
+            <div id="groups"></div>
+          </div>
+          <article class="detail" id="detail" aria-live="polite"></article>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="diagram-title">
+        <div class="diagram-head">
+          <h2 id="diagram-title">Entity-relationship diagram</h2>
+          <label class="select">
+            <span class="sr-only">Diagram scope</span>
+            <select id="scope"></select>
+          </label>
+        </div>
+        <p class="hint">Solid lines are identifying relationships (the foreign key is part of the child's primary key); dashed lines are non-identifying.</p>
+        <div class="diagram" id="diagram" role="img" aria-label="Entity-relationship diagram of the schema"></div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="wrap footer-inner">
+        <p>Oracle 23ai · 29 tables · Designed in Oracle SQL Data Modeler</p>
+        <p><a href="https://github.com/ferjoo/airline-database">Source on GitHub</a></p>
+      </div>
+    </footer>
+
+    <script type="module" src="assets/app.js"></script>
+  </body>
+</html>
